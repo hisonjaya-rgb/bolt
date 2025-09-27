@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProductionFlowItem {
   id: string;
@@ -22,6 +23,7 @@ interface ProductionFlowItem {
 }
 
 export default function Dashboard() {
+  const { toast } = useToast();
   const [filterBuyer, setFilterBuyer] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [productionFlowData, setProductionFlowData] = useState<ProductionFlowItem[]>([]);
@@ -50,16 +52,48 @@ export default function Dashboard() {
 
       setVendors(vendorsData || []);
 
-      // Fetch articles with vendors and calculate totals from variations
-      const { data: articlesData } = await supabase
+      // Fetch articles with vendors
+      const { data: articlesData, error: articlesError } = await supabase
         .from('articles')
         .select(`
           id,
           name,
           code,
           style,
-          vendors!inner(name),
-          article_variations(
+          vendor_id
+        `)
+        .order('created_at', { ascending: false });
+
+      if (articlesError) {
+        console.error('Error fetching articles:', articlesError);
+        toast({
+          title: "Error",
+          description: "Failed to fetch articles data",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Fetch vendors data separately
+      const vendorIds = [...new Set(articlesData?.map(a => a.vendor_id) || [])];
+      const { data: vendorDetails, error: vendorError } = await supabase
+        .from('vendors')
+        .select('id, name')
+        .in('id', vendorIds);
+
+      if (vendorError) {
+        console.error('Error fetching vendor details:', vendorError);
+      }
+
+      // Fetch variations for all articles
+      const articleIds = articlesData?.map(a => a.id) || [];
+      let variationsData: any[] = [];
+      
+      if (articleIds.length > 0) {
+        const { data: variations, error: variationsError } = await supabase
+          .from('article_variations')
+          .select(`
+            article_id,
             qty_order,
             cutting,
             application1,
@@ -68,13 +102,20 @@ export default function Dashboard() {
             finishing,
             qc,
             shipping
-          )
-        `)
-        .order('created_at', { ascending: false });
+          `)
+          .in('article_id', articleIds);
 
+        if (variationsError) {
+          console.error('Error fetching variations:', variationsError);
+        } else {
+          variationsData = variations || [];
+        }
+      }
       if (articlesData) {
         const flowData: ProductionFlowItem[] = articlesData.map((article: any) => {
-          const variations = article.article_variations || [];
+          const variations = variationsData.filter(v => v.article_id === article.id);
+          const vendor = vendorDetails?.find(v => v.id === article.vendor_id);
+          
           const totals = variations.reduce((acc, v) => ({
             totalOrder: acc.totalOrder + (v.qty_order || 0),
             cutting: acc.cutting + (v.cutting || 0),
@@ -102,7 +143,7 @@ export default function Dashboard() {
           return {
             id: article.id,
             article: article.code,
-            buyer: Array.isArray(article.vendors) ? (article.vendors[0]?.name ?? '') : (article.vendors?.name ?? ''),
+            buyer: vendor?.name || 'Unknown Vendor',
             style: article.style || article.name,
             ...totals,
             progress
@@ -126,6 +167,11 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch dashboard data",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -205,7 +251,7 @@ export default function Dashboard() {
                 
                 {filteredData.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    No production data available
+                    {productionFlowData.length === 0 ? "No production data available" : "No data matches the current filters"}
                   </div>
                 ) : (
                   filteredData.map((item) => (

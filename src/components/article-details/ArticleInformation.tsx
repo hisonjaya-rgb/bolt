@@ -35,9 +35,12 @@ interface Article {
   photoshoot: string;
   created_at: string;
   vendor_id: string;
-  collection?: string;
   vendors?: {
     name: string;
+  };
+  collection?: {
+    id: string;
+    collection_name: string;
   };
 }
 
@@ -60,27 +63,55 @@ interface Collection {
 interface ArticleInformationProps {
   article: Article;
   totals: Totals;
-  onUpdateArticle: (article: Article) => void;
+  onUpdateArticle: (updatedArticle: Article) => void;
+  onArticleRefetch: () => void;
 }
 
-export default function ArticleInformation({ article, totals, onUpdateArticle }: ArticleInformationProps) {
+export default function ArticleInformation({ article, totals, onUpdateArticle, onArticleRefetch }: ArticleInformationProps) {
   const { toast } = useToast();
+  const [isEditing, setIsEditing] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [customCollection, setCustomCollection] = useState("");
-  const [showCustomInput, setShowCustomInput] = useState(false);
-  const [collections, setCollections] = useState<Collection[]>([]);
+  const [isLoading, setIsLoading] = useState(false); // Added isLoading state
   const [editData, setEditData] = useState({
-    due_date: article.due_date ? new Date(article.due_date) : undefined,
+    name: article.name,
+    style: article.style || "",
+    pic: article.pic || "",
     application1: article.application1 || "",
     application2: article.application2 || "",
+    due_date: article.due_date || "",
+    fabric: article.fabric,
+    accs: article.accs,
     low_stock: article.low_stock,
     overstock: article.overstock,
     check_pattern: article.check_pattern,
     ppm: article.ppm,
     pps: article.pps,
     photoshoot: article.photoshoot,
-    collection: article.collection || "",
+    collection: article.collection?.id || "", // Use collection.id
   });
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [customCollection, setCustomCollection] = useState("");
+  const [collections, setCollections] = useState<Collection[]>([]);
+
+  useEffect(() => {
+    setEditData({
+      name: article.name,
+      style: article.style || "",
+      pic: article.pic || "",
+      application1: article.application1 || "",
+      application2: article.application2 || "",
+      due_date: article.due_date || "",
+      fabric: article.fabric,
+      accs: article.accs,
+      low_stock: article.low_stock,
+      overstock: article.overstock,
+      check_pattern: article.check_pattern,
+      ppm: article.ppm,
+      pps: article.pps,
+      photoshoot: article.photoshoot,
+      collection: article.collection?.id || "", // Use collection.id
+    });
+  }, [article]);
 
   useEffect(() => {
     fetchCollections();
@@ -174,11 +205,12 @@ export default function ArticleInformation({ article, totals, onUpdateArticle }:
   const handleCollectionChange = (value: string) => {
     if (value === "custom") {
       setShowCustomInput(true);
-      setEditData({ ...editData, collection: "" });
+      setEditData({ ...editData, collection: null });
     } else {
       setShowCustomInput(false);
       setCustomCollection("");
-      setEditData({ ...editData, collection: value });
+      const selectedCollection = collections.find(c => c.id === value);
+      setEditData({ ...editData, collection: selectedCollection || null });
     }
   };
 
@@ -203,7 +235,7 @@ export default function ArticleInformation({ article, totals, onUpdateArticle }:
 
         // Add to local collections state
         setCollections(prev => [...prev, data]);
-        setEditData({ ...editData, collection: data.id });
+        setEditData({ ...editData, collection: data }); // Set the full object
         setShowCustomInput(false);
         setCustomCollection("");
         
@@ -222,7 +254,7 @@ export default function ArticleInformation({ article, totals, onUpdateArticle }:
       const { data, error } = await supabase
         .from('articles')
         .update({
-          due_date: editData.due_date?.toISOString().split('T')[0],
+          due_date: editData.due_date ? new Date(editData.due_date).toISOString().split('T')[0] : null,
           application1: editData.application1,
           application2: editData.application2,
           low_stock: editData.low_stock,
@@ -231,7 +263,7 @@ export default function ArticleInformation({ article, totals, onUpdateArticle }:
           ppm: editData.ppm,
           pps: editData.pps,
           photoshoot: editData.photoshoot,
-          collection: editData.collection,
+          collection: editData.collection ? editData.collection.id : null, // Send only the ID
         })
         .eq('id', article.id)
         .select(`
@@ -243,6 +275,65 @@ export default function ArticleInformation({ article, totals, onUpdateArticle }:
         .single();
 
       if (error) {
+        console.error("Error updating article:", error);
+        toast({
+          title: "Error",
+          description: "Failed to update article",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      onArticleRefetch();
+      setIsEditDialogOpen(false);
+      toast({
+        title: "Success",
+        description: "Article updated successfully"
+      });
+    } catch (error) {
+      console.error('Error updating article:', error);
+    }
+  };
+
+  const handleUpdateArticle = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('articles')
+        .update({
+          name: editData.name,
+          style: editData.style || null,
+          pic: editData.pic || null,
+          application1: editData.application1 || null,
+          application2: editData.application2 || null,
+          due_date: editData.due_date ? new Date(editData.due_date).toISOString().split('T')[0] : null,
+          fabric: editData.fabric,
+          accs: editData.accs,
+          low_stock: editData.low_stock,
+          overstock: editData.overstock,
+          check_pattern: editData.check_pattern,
+          ppm: editData.ppm,
+          pps: editData.pps,
+          photoshoot: editData.photoshoot,
+          collection_id: editData.collection || null, // Ensure collection is updated as ID
+        })
+        .eq('id', article.id)
+        .select(
+          `
+          id, code, name, style, pic, application1, application2, due_date, sizes, notes, fabric, accs, low_stock, overstock, check_pattern, pps, ppm, photoshoot, created_at, vendor_id,
+          vendors (
+            name
+          ),
+          collections (
+            id,
+            collection_name
+          )
+          `
+        )
+        .single();
+
+      if (error) {
+        console.error("Error updating article:", error);
         toast({
           title: "Error",
           description: "Failed to update article",
@@ -252,13 +343,20 @@ export default function ArticleInformation({ article, totals, onUpdateArticle }:
       }
 
       onUpdateArticle(data);
-      setIsEditDialogOpen(false);
+      setIsEditing(false);
       toast({
         title: "Success",
-        description: "Article updated successfully"
+        description: "Article updated successfully",
       });
     } catch (error) {
       console.error('Error updating article:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while updating the article",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -302,8 +400,8 @@ export default function ArticleInformation({ article, totals, onUpdateArticle }:
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
-                        selected={editData.due_date}
-                        onSelect={(date) => setEditData({ ...editData, due_date: date })}
+                        selected={editData.due_date ? new Date(editData.due_date) : undefined}
+                        onSelect={(date) => setEditData({ ...editData, due_date: date ? format(date, "yyyy-MM-dd") : "" })}
                         initialFocus
                         className="p-3 pointer-events-auto"
                       />
@@ -315,7 +413,11 @@ export default function ArticleInformation({ article, totals, onUpdateArticle }:
                   <Label htmlFor="collection">Collection</Label>
                   <Select value={editData.collection || (showCustomInput ? "custom" : "")} onValueChange={handleCollectionChange}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select collection" />
+                      <SelectValue placeholder="Select collection">
+                        {editData.collection
+                          ? collections.find((c) => c.id === editData.collection)?.collection_name
+                          : "Select collection"}
+                    </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {collections.map((collection) => (
@@ -481,8 +583,8 @@ export default function ArticleInformation({ article, totals, onUpdateArticle }:
             {article.collection && (
               <div>
                 <p className="text-sm text-muted-foreground">Collection</p>
-                <p className="font-medium">
-                  {collections.find(c => c.id === article.collection)?.collection_name || article.collection}
+                <p className="text-xl font-bold">
+                  {article.collection?.collection_name || 'N/A'}
                 </p>
               </div>
             )}

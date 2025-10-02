@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+import { StandardArticleCard } from "@/components/ui/StandardArticleCard";
 import ArticleInformation from "@/components/article-details/ArticleInformation";
 import ArticleVariations from "@/components/article-details/ArticleVariations";
 import ArticleBOM from "@/components/article-details/ArticleBOM";
@@ -42,6 +43,10 @@ interface Article {
   vendors?: {
     name: string;
   };
+  collection?: {
+    id: string;
+    collection_name: string;
+  };
 }
 
 interface ArticleVariation {
@@ -50,9 +55,9 @@ interface ArticleVariation {
   color: string;
   size: string;
   qty_order: number;
-  cutting: number;
   application1: number;
   application2: number;
+  cutting: number;
   sewing: number;
   finishing: number;
   qc: number;
@@ -62,9 +67,9 @@ interface ArticleVariation {
 
 interface Totals {
   totalOrder: number;
-  totalCutting: number;
   totalApplication1: number;
   totalApplication2: number;
+  totalCutting: number;
   totalSewing: number;
   totalFinishing: number;
   totalQC: number;
@@ -80,12 +85,12 @@ export default function ArticleDetails() {
   const [variations, setVariations] = useState<ArticleVariation[]>([]);
   const [totals, setTotals] = useState<Totals>({
     totalOrder: 0,
-    totalCutting: 0,
     totalApplication1: 0,
-    totalApplication2: 0,
-    totalSewing: 0,
-    totalFinishing: 0,
-    totalQC: 0,
+        totalApplication2: 0,
+        totalCutting: 0,
+        totalSewing: 0,
+        totalFinishing: 0,
+      totalQC: 0,
     totalShipping: 0
   });
   const [loading, setLoading] = useState(true);
@@ -106,15 +111,20 @@ export default function ArticleDetails() {
       const { data, error } = await supabase
         .from('articles')
         .select(`
-          *,
+          id, code, name, style, pic, application1, application2, due_date, sizes, notes, fabric, accs, low_stock, overstock, check_pattern, pps, ppm, photoshoot, created_at, vendor_id,
           vendors (
             name
+          ),
+          collection:collections (
+            id,
+            collection_name
           )
         `)
         .eq('id', id)
         .maybeSingle();
 
       if (error) {
+        console.error("Supabase error fetching article details:", error);
         toast({
           title: "Error",
           description: "Failed to fetch article details",
@@ -157,9 +167,9 @@ export default function ArticleDetails() {
     const newTotals = variations.reduce(
       (acc, variation) => ({
         totalOrder: acc.totalOrder + (variation.qty_order || 0),
-        totalCutting: acc.totalCutting + (variation.cutting || 0),
         totalApplication1: acc.totalApplication1 + (variation.application1 || 0),
         totalApplication2: acc.totalApplication2 + (variation.application2 || 0),
+        totalCutting: acc.totalCutting + (variation.cutting || 0),
         totalSewing: acc.totalSewing + (variation.sewing || 0),
         totalFinishing: acc.totalFinishing + (variation.finishing || 0),
         totalQC: acc.totalQC + (variation.qc || 0),
@@ -167,9 +177,9 @@ export default function ArticleDetails() {
       }),
       {
         totalOrder: 0,
-        totalCutting: 0,
         totalApplication1: 0,
         totalApplication2: 0,
+        totalCutting: 0,
         totalSewing: 0,
         totalFinishing: 0,
         totalQC: 0,
@@ -177,6 +187,13 @@ export default function ArticleDetails() {
       }
     );
     setTotals(newTotals);
+    if (article) {
+      setArticle(prevArticle => ({
+        ...prevArticle!,
+        total_order: newTotals.totalOrder,
+        shipping: newTotals.totalShipping,
+      }));
+    }
   };
 
   const handleUpdateArticle = (updatedArticle: Article) => {
@@ -215,11 +232,11 @@ export default function ArticleDetails() {
         <Button 
           variant="ghost" 
           size="sm" 
-          onClick={() => navigate('/articles')}
+          onClick={() => navigate(-1)}
           className="flex items-center gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Articles
+          Back
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{article.name}</h1>
@@ -230,68 +247,21 @@ export default function ArticleDetails() {
         </Badge>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Fabric Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Badge variant={
-              article.fabric === 'Matched' ? 'default' :
-              article.fabric === 'Shortage' ? 'destructive' : 'secondary'
-            }>
-              {article.fabric}
-            </Badge>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Accs Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Badge variant={
-              article.accs === 'Matched' ? 'default' :
-              article.accs === 'Shortage' ? 'destructive' : 'secondary'
-            }>
-              {article.accs}
-            </Badge>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">PPM</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Badge variant={
-              article.ppm === 'Done' ? 'default' :
-              article.ppm === 'In Progress' ? 'secondary' : 'outline'
-            }>
-              {article.ppm}
-            </Badge>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Photoshoot</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Badge variant={
-              article.photoshoot === 'Done' ? 'default' :
-              article.photoshoot === 'In Progress' ? 'secondary' : 'outline'
-            }>
-              {article.photoshoot}
-            </Badge>
-          </CardContent>
-        </Card>
+      {/* Standard Article Card */}
+      <div className="w-full">
+        <StandardArticleCard
+          article={{
+            ...article,
+            vendor: article.vendors,
+          }}
+          progressValue={totals.totalOrder > 0 ? Math.round((totals.totalShipping / totals.totalOrder) * 100) : 0}
+          onCardClick={() => {}}
+        />
       </div>
 
       {/* Tabs */}
       <Tabs defaultValue="information" className="space-y-6">
-        <TabsList className="grid grid-cols-6 lg:w-[1200px] overflow-x-auto">
+        <TabsList className="grid grid-cols-3 md:grid-cols-6 lg:w-[1200px]">
           <TabsTrigger value="information">Article Information</TabsTrigger>
           <TabsTrigger value="bom">BOM</TabsTrigger>
           <TabsTrigger value="form-sample">Form Sample</TabsTrigger>
@@ -301,10 +271,11 @@ export default function ArticleDetails() {
         </TabsList>
 
         <TabsContent value="information" className="space-y-6">
-          <ArticleInformation 
+          <ArticleInformation
             article={article}
             totals={totals}
             onUpdateArticle={handleUpdateArticle}
+            onArticleRefetch={fetchArticleDetails}
           />
           <ArticleVariations 
             article={article}

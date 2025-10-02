@@ -261,22 +261,28 @@ export default function ArticleVariations({ article, variations, onUpdateVariati
                  style={{ 
                    gridTemplateColumns: `60px 50px 70px 60px ${article.application1 ? '50px ' : ''}${article.application2 ? '50px ' : ''}60px 70px 50px 80px 60px 90px`
                  }}>
-              <div>Color</div>
-              <div>Size</div>
-              <div>Qty Order</div>
-              <div>Cutting</div>
-              {article.application1 && <div>App1</div>}
-              {article.application2 && <div>App2</div>}
-              <div>Sewing</div>
-              <div>Finishing</div>
-              <div>QC</div>
-              <div>Ready to Ship</div>
-              <div>Shipping</div>
-              <div>Balance</div>
+              <div className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[80px]">Color</div>
+              <div className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[60px]">Size</div>
+              <div className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[80px] text-right">Qty Order</div>
+              <div className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[70px] text-right">Cutting</div>
+              {article.application1 && <div className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[60px] text-right">App1</div>}
+              {article.application2 && <div className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[60px] text-right">App2</div>}
+              <div className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[70px] text-right">Sewing</div>
+              <div className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[80px] text-right">Finishing</div>
+              <div className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[60px] text-right">QC</div>
+              <div className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[70px] text-right">Ready to Ship</div>
+              <div className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[90px] text-right">Shipping</div>
+              <div className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[90px] text-right">Balance</div>
             </div>
             
             {/* Data Rows */}
-            {sortBySizeProperty(variations).map((variation) => {
+            {[...variations].sort((a, b) => {
+              const colorComparison = a.color.localeCompare(b.color);
+              if (colorComparison !== 0) {
+                return colorComparison;
+              }
+              return sortBySizeProperty([a, b])[0] === a ? -1 : 1;
+            }).map((variation) => {
               const balance = variation.shipping - variation.cutting;
               const balancePercentage = variation.cutting > 0 ? Math.round((balance / variation.cutting) * 100) : 0;
               
@@ -286,12 +292,8 @@ export default function ArticleVariations({ article, variations, onUpdateVariati
                      style={{ 
                        gridTemplateColumns: `60px 50px 70px 60px ${article.application1 ? '50px ' : ''}${article.application2 ? '50px ' : ''}60px 70px 50px 80px 60px 90px`
                      }}>
-                  <div>
-                    <Badge variant="secondary" className="text-xs">{variation.color}</Badge>
-                  </div>
-                  <div>
-                    <Badge variant="outline" className="text-xs">{variation.size}</Badge>
-                  </div>
+                  <div className="p-2 text-xs">{variation.color}</div>
+                  <div className="text-center text-xs p-2">{variation.size || "-"}</div>
                   <div>
                     <Input
                       type="number"
@@ -350,7 +352,7 @@ export default function ArticleVariations({ article, variations, onUpdateVariati
                       className="w-full h-6 text-xs text-center p-1"
                     />
                   </div>
-                  <div className="font-medium">{variation.qc || "-"}</div>
+                  <div className="font-medium p-2 text-xs">{variation.qc || "-"}</div>
                   <div>
                     <Input
                       type="number"
@@ -360,8 +362,8 @@ export default function ArticleVariations({ article, variations, onUpdateVariati
                       className="w-full h-6 text-xs text-center p-1"
                     />
                   </div>
-                  <div className="font-medium">{variation.shipping || "-"}</div>
-                  <div className="font-medium text-center">
+                  <div className="font-medium p-2 text-xs">{variation.shipping || "-"}</div>
+                  <div className="font-medium text-center p-2 text-xs">
                     <div>{balance}</div>
                     <div className="text-xs text-muted-foreground">({balancePercentage}%)</div>
                   </div>

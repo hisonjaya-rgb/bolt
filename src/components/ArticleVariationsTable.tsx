@@ -62,41 +62,41 @@ export function ArticleVariationsTable({ groupedVariations, searchTerm = "" }: A
 
   return (
     <div className="w-full space-y-3 sm:space-y-4">
-      <h2 className="text-lg sm:text-xl font-semibold">Article Variations</h2>
+      <h2 className="text-base sm:text-lg font-semibold">Article Variations</h2>
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table className="min-w-[700px]">
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[80px]">
+                  <TableHead className="font-bold text-xxs sm:text-xs p-2 sm:p-3 w-[80px]">
                     Color
                   </TableHead>
-                  <TableHead className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[60px]">
+                  <TableHead className="font-bold text-xxs sm:text-xs p-2 sm:p-3 w-[60px]">
                     Size
                   </TableHead>
-                  <TableHead className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[80px] text-right">
+                  <TableHead className="font-bold text-xxs sm:text-xs p-2 sm:p-3 w-[80px] text-right">
                     Qty Order
                   </TableHead>
-                  <TableHead className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[70px] text-right">
+                  <TableHead className="font-bold text-xxs sm:text-xs p-2 sm:p-3 w-[70px] text-right">
                     Cutting
                   </TableHead>
-                  <TableHead className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[60px] text-right">
+                  <TableHead className="font-bold text-xxs sm:text-xs p-2 sm:p-3 w-[60px] text-right">
                     App1
                   </TableHead>
-                  <TableHead className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[60px] text-right">
+                  <TableHead className="font-bold text-xxs sm:text-xs p-2 sm:p-3 w-[60px] text-right">
                     App2
                   </TableHead>
-                  <TableHead className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[70px] text-right">
+                  <TableHead className="font-bold text-xxs sm:text-xs p-2 sm:p-3 w-[70px] text-right">
                     Sewing
                   </TableHead>
-                  <TableHead className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[80px] text-right">
+                  <TableHead className="font-bold text-xxs sm:text-xs p-2 sm:p-3 w-[80px] text-right">
                     Finishing
                   </TableHead>
-                  <TableHead className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[60px] text-right">
+                  <TableHead className="font-bold text-xxs sm:text-xs p-2 sm:p-3 w-[60px] text-right">
                     QC
                   </TableHead>
-                  <TableHead className="font-bold text-xs sm:text-sm p-2 sm:p-3 w-[70px] text-right">
+                  <TableHead className="font-bold text-xxs sm:text-xs p-2 sm:p-3 w-[70px] text-right">
                     Shipping
                   </TableHead>
                 </TableRow>
@@ -110,7 +110,13 @@ export function ArticleVariationsTable({ groupedVariations, searchTerm = "" }: A
                   </TableRow>
                 ) : (
                   filteredVariations.flatMap(([articleId, data]) => {
-                    const sortedVariations = sortBySizeProperty(data.variations);
+                    const sortedVariations = [...data.variations].sort((a, b) => {
+                      const colorComparison = a.color.localeCompare(b.color);
+                      if (colorComparison !== 0) {
+                        return colorComparison;
+                      }
+                      return sortBySizeProperty([a, b])[0] === a ? -1 : 1;
+                    });
                     
                     return [
                       // Article separator row

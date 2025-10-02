@@ -38,7 +38,6 @@ const mainItems = [
   { title: "Daily Reports", url: "/daily-reports", icon: FileText },
   { title: "Shipping", url: "/shipping", icon: Package },
   { title: "AI Assistant", url: "/ai-assistant", icon: Sparkles },
-  { title: "Theme", url: "/theme", icon: Palette },
 ];
 
 export function AppSidebar() {

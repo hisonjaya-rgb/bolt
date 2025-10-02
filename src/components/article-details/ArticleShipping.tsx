@@ -163,8 +163,8 @@ export default function ArticleShipping({ articleId }: ArticleShippingProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {shipping.shipping_list.map((item, index) => (
-                  <TableRow key={index}>
+                {shipping.shipping_list.map((item) => (
+                  <TableRow key={item.id}>
                     <TableCell>{item.color}</TableCell>
                     <TableCell>{item.size}</TableCell>
                     <TableCell>{item.ok}</TableCell>

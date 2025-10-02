@@ -8,6 +8,7 @@ import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { AddArticleDialog } from "@/components/AddArticleDialog";
+import { StandardArticleCard } from "@/components/ui/StandardArticleCard";
 
 interface Article {
   id: string;
@@ -21,8 +22,18 @@ interface Article {
   due_date?: string;
   sizes: string[];
   notes?: string;
+  total_order?: number;
+  shipping?: number;
+  fabric?: string;
+  accs?: string;
+  pps?: string;
+  ppm?: string;
+  photoshoot?: string;
   vendors?: {
     name: string;
+  };
+  collections?: {
+    collection_name: string;
   };
 }
 
@@ -42,15 +53,30 @@ export default function Articles() {
       const { data, error } = await supabase
         .from('articles')
         .select(`
-          *,
-          vendors (
-            name
-          )
+          id, code, name, vendor_id, style, pic, application1, application2, due_date, sizes, notes, fabric, accs, pps, ppm, photoshoot,
+          vendors (name),
+          collections (collection_name)
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setArticles(data || []);
+
+      const articleIds = data.map(article => article.id);
+      const { data: variationsData, error: variationsError } = await supabase
+        .from('article_variations')
+        .select('article_id, qty_order, shipping')
+        .in('article_id', articleIds);
+
+      if (variationsError) throw variationsError;
+
+      const articlesWithTotals = data.map(article => {
+        const variations = variationsData.filter(variation => variation.article_id === article.id);
+        const total_order = variations.reduce((acc, variation) => acc + variation.qty_order, 0);
+        const total_shipping = variations.reduce((acc, variation) => acc + (variation.shipping || 0), 0);
+        return { ...article, total_order, shipping: total_shipping };
+      });
+
+      setArticles(articlesWithTotals || []);
     } catch (error) {
       console.error('Error fetching articles:', error);
     } finally {
@@ -58,12 +84,10 @@ export default function Articles() {
     }
   };
 
-
   const filteredArticles = articles.filter(article =>
     article.name.toLowerCase().includes(search.toLowerCase()) ||
     (article.vendors?.name?.toLowerCase().includes(search.toLowerCase()) ?? false)
   );
-
 
   return (
     <div className="space-y-6">
@@ -103,62 +127,25 @@ export default function Articles() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {filteredArticles.map((article) => (
-            <Card 
-              key={article.id} 
-              className="interactive-card shadow-[var(--shadow-elegant)]"
-              onClick={() => navigate(`/articles/${article.id}`)}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1 flex-1">
-                    <CardTitle className="text-lg">{article.name}</CardTitle>
-                    <CardDescription>{article.code}</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Vendor</p>
-                    <Badge variant="outline">{article.vendors?.name}</Badge>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Due Date</p>
-                    <p className="text-sm">{article.due_date ? new Date(article.due_date).toLocaleDateString('id-ID') : '-'}</p>
-                  </div>
-                </div>
-                
-                {article.style && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Style</p>
-                    <p className="text-sm">{article.style}</p>
-                  </div>
-                )}
+          {filteredArticles.map((article) => {
+            // Calculate the progress
+            const progressValue = article.total_order && article.total_order > 0
+              ? (article.shipping / article.total_order) * 100
+              : 0;
 
-                {(article.application1 || article.application2) && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Applications</p>
-                    <div className="flex gap-1 flex-wrap">
-                      {article.application1 && (
-                        <Badge variant="outline" className="text-xs">{article.application1}</Badge>
-                      )}
-                      {article.application2 && (
-                        <Badge variant="outline" className="text-xs">{article.application2}</Badge>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {article.notes && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Notes</p>
-                    <p className="text-sm line-clamp-2">{article.notes}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+            return (
+              <StandardArticleCard
+                key={article.id}
+                article={{
+                  ...article,
+                  vendor: article.vendors,
+                  collection: article.collections,
+                }}
+                progressValue={progressValue}
+                onCardClick={(articleId) => navigate(`/articles/${articleId}`)}
+              />
+            );
+          })}
         </div>
       )}
     </div>

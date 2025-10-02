@@ -53,7 +53,7 @@ All colors MUST be HSL.
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 210 100% 45%;
     --sidebar-active: 210 100% 45%;
-    --sidebar-active-foreground: 0 0% 100%;
+    --sidebar-active-foreground: 0 0% 0%;
   }
 
   .dark {
@@ -99,7 +99,7 @@ All colors MUST be HSL.
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
     --sidebar-active: 224.3 76.3% 48%;
-    --sidebar-active-foreground: 0 0% 100%;
+    --sidebar-active-foreground: 0 0% 0%;
   }
 }
 

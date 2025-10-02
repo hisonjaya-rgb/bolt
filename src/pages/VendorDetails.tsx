@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Plus, Edit, Eye, Search } from "lucide-react";
+import { ArrowLeft, Edit, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { StandardArticleCard } from "@/components/ui/StandardArticleCard";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ArticleVariationsTable } from "@/components/ArticleVariationsTable";
 import { AddArticleDialog } from "@/components/AddArticleDialog";
@@ -31,9 +32,15 @@ interface Article {
   has_app2: boolean;
   fabric?: string;
   accs?: string;
+  pps?: string;
   ppm?: string;
   photoshoot?: string;
-  collection?: string;
+  collection?: {
+    id: string;
+    collection_name: string;
+  };
+  cutting?: number;
+  sewing?: number;
 }
 
 interface ArticleVariation {
@@ -42,13 +49,13 @@ interface ArticleVariation {
   color: string;
   size: string;
   qty_order: number;
-  cutting: number;
   application1: number;
   application2: number;
-  sewing: number;
   finishing: number;
   qc: number;
   shipping: number;
+  cutting: number; // Added missing property
+  sewing: number; // Added missing property
 }
 
 interface GroupedVariations {
@@ -57,10 +64,10 @@ interface GroupedVariations {
     variations: ArticleVariation[];
     totals: {
       qty_order: number;
-      cutting: number;
       application1: number;
       application2: number;
-      sewing: number;
+      cutting: number; // Added missing property
+      sewing: number; // Added missing property
       finishing: number;
       qc: number;
       shipping: number;
@@ -117,7 +124,7 @@ export default function VendorDetails() {
           accs,
           ppm,
           photoshoot,
-          collection
+          collection:collections!inner(id, collection_name)
         `)
         .eq('vendor_id', vendorId)
         .order('created_at', { ascending: false });
@@ -144,19 +151,15 @@ export default function VendorDetails() {
           
           const totals = articleVariations.reduce((acc, variation) => ({
             qty_order: acc.qty_order + (variation.qty_order || 0),
-            cutting: acc.cutting + (variation.cutting || 0),
             application1: acc.application1 + (variation.application1 || 0),
             application2: acc.application2 + (variation.application2 || 0),
-            sewing: acc.sewing + (variation.sewing || 0),
             finishing: acc.finishing + (variation.finishing || 0),
             qc: acc.qc + (variation.qc || 0),
             shipping: acc.shipping + (variation.shipping || 0),
           }), {
             qty_order: 0,
-            cutting: 0,
             application1: 0,
             application2: 0,
-            sewing: 0,
             finishing: 0,
             qc: 0,
             shipping: 0,
@@ -270,84 +273,27 @@ export default function VendorDetails() {
       <div className="w-full min-w-0">
         <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Articles ({articles.length})</h2>
         <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4">
-          {filteredArticles.map((article) => (
-            <Card key={article.id} className="hover:shadow-md transition-shadow min-w-0">
-              <CardHeader className="p-2 sm:p-4">
-                <div className="flex items-start justify-between gap-1">
-                  <div className="space-y-1 min-w-0">
-                    <CardTitle 
-                      className="text-xs sm:text-base cursor-pointer hover:text-primary truncate leading-tight"
-                      onClick={() => navigate(`/articles/${article.id}`)}
-                    >
-                      {article.name}
-                    </CardTitle>
-                    <CardDescription className="text-xs truncate">
-                      {article.code}
-                    </CardDescription>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                      <Edit className="h-3 w-3" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={() => navigate(`/articles/${article.id}`)}
-                    >
-                      <Eye className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-               <CardContent className="p-2 sm:p-4 pt-0 space-y-2">
-                <div className="grid grid-cols-1 gap-1 text-xs">
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Total:</span>
-                    <span className="font-semibold">{article.total_order}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Due:</span>
-                    <span className="truncate">{article.due_date ? format(new Date(article.due_date), 'MMM dd') : '-'}</span>
-                  </div>
-                </div>
+          {filteredArticles.map((article) => {
+            // Calculate the progress
+            const articleTotals = groupedVariations[article.id]?.totals;
+            const progressValue = articleTotals && articleTotals.qty_order > 0
+              ? (articleTotals.shipping / articleTotals.qty_order) * 100
+              : 0;
 
-                {article.collection && (
-                  <div className="border-t pt-1">
-                    <p className="text-xs text-muted-foreground">Collection</p>
-                    <p className="text-xs font-medium truncate">{article.collection}</p>
-                  </div>
-                )}
-                 
-                <div className="grid grid-cols-2 gap-1 text-xs">
-                  <div className="min-w-0">
-                    <p className="text-muted-foreground truncate">Fabric</p>
-                    <p className="truncate">{article.fabric || 'OK'}</p>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-muted-foreground truncate">Accs</p>
-                    <p className="truncate">{article.accs || 'OK'}</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-1 flex-wrap">
-                  <Badge variant={article.ppm === 'Done' ? 'default' : 'secondary'} className="text-xs px-1 py-0">
-                    PPM
-                  </Badge>
-                  <Badge variant={article.photoshoot === 'Done' ? 'default' : 'secondary'} className="text-xs px-1 py-0">
-                    Photo
-                  </Badge>
-                </div>
-
-                {article.pic && (
-                  <div className="border-t pt-1">
-                    <p className="text-xs text-muted-foreground">PIC</p>
-                    <p className="text-xs truncate">{article.pic}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+            return (
+              <StandardArticleCard
+                key={article.id}
+                article={{
+                  ...article,
+                  vendor: vendor,
+                  collection: article.collection,
+                }}
+                hideVendor={true}
+                progressValue={progressValue}
+                onCardClick={(articleId) => navigate(`/articles/${articleId}`)}
+              />
+            );
+          })}
         </div>
       </div>
 

@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Upload, Bot, User, Paperclip, Loader2 } from "lucide-react";
+import { Send, Upload, Bot, User, Paperclip, Loader as Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Message {

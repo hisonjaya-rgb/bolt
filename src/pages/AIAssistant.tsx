@@ -6,7 +6,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Upload, Bot, User, Paperclip, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   id: string;
@@ -87,8 +86,8 @@ export default function AIAssistant() {
       if (selectedFile) {
         const formData = new FormData();
         formData.append('file', selectedFile);
-        
-        // Convert file to base64 for sending to edge function
+
+        // Convert file to base64 for sending to webhook
         const reader = new FileReader();
         const fileDataPromise = new Promise<string>((resolve) => {
           reader.onload = () => {
@@ -100,26 +99,32 @@ export default function AIAssistant() {
         fileData = await fileDataPromise;
       }
 
-      const { data, error } = await supabase.functions.invoke('ai-assistant', {
-        body: {
+      const response = await fetch('https://n8n-n8n-garment.37ciry.easypanel.host/webhook-test/451684ff-f26a-451d-8485-b59f48594ece', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           message: input.trim(),
           fileData: fileData,
           fileName: selectedFile?.name,
           fileType: selectedFile?.type,
-        }
+        })
       });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to get response from AI');
+
+      const data = await response.json();
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: data.response,
+        content: data.response || 'No response received',
         role: "assistant",
         timestamp: new Date(),
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-      
+
       if (data.dataInserted) {
         toast({
           title: "Data Processed",
